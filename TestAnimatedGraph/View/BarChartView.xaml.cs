@@ -2,6 +2,8 @@
 using LiveCharts.Wpf;
 using System;
 using System.Collections.Generic;
+using System.Data.SQLite;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -17,6 +19,7 @@ namespace TestAnimatedGraph.View
         private readonly DispatcherTimer timer, BrokerTimer;
         private readonly Balance Balance = new Balance();
         private readonly Errors Errors = new Errors();
+        private readonly SQLFunctions SQLFunctions = new SQLFunctions();
         public SeriesCollection SeriesCollection { get; set; }
         public ColumnSeries BuyColumnSeries { get; set; }
         public ColumnSeries SellingColumnSeries { get; set; }
@@ -27,6 +30,8 @@ namespace TestAnimatedGraph.View
         public BarChartView()
         {
             InitializeComponent();
+            SQLFunctions.Init();
+            SQLFunctions.Link();
             Balance.BalanceValue = 1000;
             SeriesCollection = new SeriesCollection();
             BuyColumnSeries = new ColumnSeries
@@ -55,7 +60,6 @@ namespace TestAnimatedGraph.View
             BrokerTimer.Start();
             
         }
-
         private void Broker_Time_tick(object sender, EventArgs e)
         {
             Random random = new Random();
@@ -64,12 +68,14 @@ namespace TestAnimatedGraph.View
             {
                 case 0:
                     VirtualBroker.CountOfSharesForOperation = random.Next(1, 3);
+                    SQLFunctions.InsertOperationValue("Брокер", "Покупка");
                     VirtualBroker.Buy(Convert.ToInt32(BuyValueTextBlock.Text), VirtualBroker.CountOfSharesForOperation);
                     break;
                 case 1:
                    if(VirtualBroker.BrokerBalance.CountOfShares > 0)
                     {
                         VirtualBroker.CountOfSharesForOperation = random.Next(1, VirtualBroker.BrokerBalance.CountOfShares);
+                        SQLFunctions.InsertOperationValue("Брокер", "Продажа");
                         VirtualBroker.Sale(Convert.ToInt32(SellingValueTextBlock.Text), VirtualBroker.CountOfSharesForOperation);
                         break;
                     }
@@ -88,7 +94,7 @@ namespace TestAnimatedGraph.View
             Random random = new Random();
             double buyValue = Convert.ToDouble(random.Next(0, 100));
             double sellingValue = Convert.ToDouble(random.Next(Convert.ToInt32(buyValue), 100));
-
+            SQLFunctions.InsertSaleAndCostValues(sellingValue, buyValue);
             shares.Add(new Shares()
             {
                 SellingValue = sellingValue,
@@ -133,32 +139,43 @@ namespace TestAnimatedGraph.View
             {
                 if (Balance.BalanceValue - (Convert.ToInt32(BuyValueTextBlock.Text) * Convert.ToInt32(SharesCountTextBox.Text)) > 0)
                 {
+                    SQLFunctions.InsertOperationValue("Пользователь", "Покупка");
                     Balance.CountOfShares += Convert.ToInt32(SharesCountTextBox.Text);
                     Balance.BalanceValue -= Convert.ToInt32(BuyValueTextBlock.Text) * Convert.ToInt32(SharesCountTextBox.Text);
                 }
                 else
                 {
-                    Errors.InsufficientFunds("Недостаточно средств");
+                    Errors.ShowMessage("Недостаточно средств", MessageBoxImage.Error);
                 }
             }
             catch
             {
-                MessageBox.Show("Введите количество акций");
+                Errors.ShowMessage("Введите количество акций", MessageBoxImage.Information);
             }
 
 
         }
         private void Sale()
         {
-            if(Balance.CountOfShares - Convert.ToInt32(SharesCountTextBox.Text) >= 0)
+            try
             {
-                Balance.CountOfShares -= Convert.ToInt32(SharesCountTextBox.Text);
-                Balance.BalanceValue += Convert.ToInt32(SellingValueTextBlock.Text) * Convert.ToInt32(SharesCountTextBox.Text);
+                if (Balance.CountOfShares - Convert.ToInt32(SharesCountTextBox.Text) >= 0)
+                {
+                    SQLFunctions.InsertOperationValue("Пользователь", "Продажа");
+                    Balance.CountOfShares -= Convert.ToInt32(SharesCountTextBox.Text);
+                    Balance.BalanceValue += Convert.ToInt32(SellingValueTextBlock.Text) * Convert.ToInt32(SharesCountTextBox.Text);
+                }
+                else
+                {
+                    Errors.ShowMessage("Недостаточно акций", MessageBoxImage.Error);
+                }
             }
-            else
+            catch
             {
-                Errors.InsufficientFunds("Недостаточно акций");
+                Errors.ShowMessage("Введите количество акций", MessageBoxImage.Information);
+
             }
+
 
         }
         private void UpdateParameters()

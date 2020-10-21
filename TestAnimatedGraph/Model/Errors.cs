@@ -7,9 +7,9 @@ namespace TestAnimatedGraph.Model
 {
     class Errors: IErrors
     {
-        public void InsufficientFunds(string message)
+        public void ShowMessage(string message, MessageBoxImage messageBoxImage)
         {
-            MessageBox.Show(message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(message, "Ошибка", MessageBoxButton.OK, messageBoxImage);
         }
     }
 }
